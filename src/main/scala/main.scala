@@ -6,5 +6,6 @@ object main extends App {
   //val human = Player(true, Option("white"))
   //val engine = Player(false, Option("black"))
   //val game = new Game(human, engine)
+  GameLoop.run()
 
 }
