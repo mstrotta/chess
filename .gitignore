@@ -1,0 +1,19 @@
+# SBT Specific
+dist/
+*target/
+project/target/
+lib_managed/
+src_managed/
+local/
+
+# Intellij
+.idea/
+*.iml
+
+# Ignore Eclipse files
+.classpath
+.project
+.settings
+
+# OSX ridiculousness
+.DS_Store
