@@ -2,17 +2,24 @@ package chess
 
 import scala.io.StdIn._
 
+case class Game() {
+  val board = new Board()
+  val moveHistory: List[Move] = Nil
+  val isCheckmate = false
+  def isCheck = false
+  def isLegalMove = ???
+}
+
 object GameLoop {
   private val game = Game()
 
   def run(): Unit = {
     var move: Option[Move] = None
     do {
+      print("\033[2J")
       println(game.board)
       move = promptMove()
-      move foreach { m =>
-        game.board.move((m.coords(0), m.coords(1)), (m.coords(2), m.coords(3)))
-      }
+      move foreach( game.board.move(_) )
     } while (move.nonEmpty && !game.isCheckmate)
   }
 
@@ -26,4 +33,9 @@ object GameLoop {
   }
 
   def isQuit(s: String): Boolean = s.headOption.exists(_.toUpper == 'Q')
+}
+
+object Main extends App {
+  //def main(args[])
+  GameLoop.run
 }

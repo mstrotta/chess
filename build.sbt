@@ -1,4 +1,4 @@
-name := "personal"
+name := "chess"
 
 version := "0.1"
 
