@@ -6,7 +6,7 @@ case object Black extends Color
 case object NoColor extends Color
 
 object BoardSquare {
-  def apply(row: Int, col: Int) = {
+  def apply(row: Int, col: Int): BoardSquare = {
     require(0 <= row && row < 8 && 0 <= col && col < 8,
             "BoardSquare must be in interval [0,8]")
     new BoardSquare(row, col)
@@ -32,12 +32,23 @@ class BoardSquare(row: Int, col: Int) {
 }
 
 class Board() {
-  val squares: Array[Array[Piece]] = initializePieces
+  val squares: Array[Array[Piece]] = initializePieces()
+
+  //def getLegalMoves(sq: BoardSquare): List[Move] = {}
+
+  def apply(sq: BoardSquare): Piece = getPiece(sq)
 
   def move(m: Move): Unit = {
     squares(m.to(0))(m.to(1)) = squares(m.from(0))(m.from(1))
-    squares(m.from(0))(m.from(1)) = new Empty(BoardSquare(m.from(0), m.from(1)))
+    squares(m.from(0))(m.from(1)) = Empty(BoardSquare(m.from(0), m.from(1)))
   }
+
+  def isOccupied(sq: BoardSquare): Boolean = getPiece(sq) match {
+    case Empty(_) => false
+    case _        => true
+  }
+
+  def getPiece(sq: BoardSquare): Piece = squares(sq(0))(sq(1))
 
   private def initializePieces(): Array[Array[Piece]] = {
     Array(
@@ -52,10 +63,10 @@ class Board() {
         new Rook(Black, BoardSquare(7, 7))
       ),
       Array.tabulate[Piece](8)(i => new Pawn(Black, BoardSquare(6, i))),
-      Array.tabulate(8)(i => new Empty(BoardSquare(5, i))),
-      Array.tabulate(8)(i => new Empty(BoardSquare(4, i))),
-      Array.tabulate(8)(i => new Empty(BoardSquare(3, i))),
-      Array.tabulate(8)(i => new Empty(BoardSquare(2, i))),
+      Array.tabulate(8)(i => Empty(BoardSquare(5, i))),
+      Array.tabulate(8)(i => Empty(BoardSquare(4, i))),
+      Array.tabulate(8)(i => Empty(BoardSquare(3, i))),
+      Array.tabulate(8)(i => Empty(BoardSquare(2, i))),
       Array.tabulate[Piece](8)(i => new Pawn(White, BoardSquare(1, i))),
       Array(
         new Rook(White, BoardSquare(7, 0)),
@@ -70,12 +81,14 @@ class Board() {
     )
   }
 
-  override def toString(): String = {
+  override def toString: String = {
     squares.map(line => line.mkString(" ")).mkString("\n")
   }
+
 }
 
 object Move {
+
   private val coords = "(\\d)(\\d) ?(\\d)(\\d)".r
   private val square = "([a-hA-H][1-8]) ?([a-hA-H][1-8])".r
 
@@ -89,17 +102,15 @@ object Move {
         throw new IllegalArgumentException(s"Move format unrecognized: $move")
     }
   }
-
   def isValid(move: String): Boolean = {
     try {
       Move(move)
       true
     } catch {
-      case _: IllegalArgumentException => { println("Invalid"); false }
+      case _: IllegalArgumentException =>  println("Invalid"); false
       case e: Throwable                => throw e
     }
   }
-
   def alphaToSquare(s: String): Option[BoardSquare] = {
     // Returns coords in
     def toNum(c: Char) = c.toLower.toInt - 'a'
@@ -110,14 +121,25 @@ object Move {
       case _               => None
     }
   }
-}
 
-case class Move(val from: BoardSquare, val to: BoardSquare) {}
+}
+case class Move(from: BoardSquare, to: BoardSquare) {}
+sealed trait MoveList {
+  def toList: List[Move]
+}
+final case class MoveSet private (_moves: Move*) extends MoveList {
+  def toList: List[Move] = _moves.toList
+}
+final case class MovePath private (_moves: Move*) extends MoveList {
+  def takeWhile(p: Move => Boolean): List[Move] = _moves.toList.takeWhile(p)
+  def toList: List[Move] = _moves.toList
+}
 
 sealed trait Piece {
   val color: Color
   val square: BoardSquare
-  def getMotion: List[Option[BoardSquare]]
+  type Path = (BoardSquare, (Int, Int)) => List[BoardSquare]
+  def getMotion: List[List[BoardSquare]]
   override def toString: String = {
     val c = this match {
       case _: Pawn   => '\u2659'
@@ -132,35 +154,39 @@ sealed trait Piece {
     (c + d).toChar.toString
   }
 }
-final class Empty(val square: BoardSquare) extends Piece {
-  val color = NoColor
-  def getMotion: List[Option[BoardSquare]] = Nil
+final case class Empty(square: BoardSquare) extends Piece {
+  val color: Color = NoColor
+  def getMotion: List[List[BoardSquare]] = Nil
 }
 final class Pawn(val color: Color, val square: BoardSquare) extends Piece {
   val dir: Int = if (color == White) 1 else -1
   val homeRow: Int = if (color == White) 1 else 6
-  def getMotion = {
+  def getMotion: List[List[BoardSquare]] = {
     if (square(0) == homeRow)
-      List(square + (dir, 0), square + (2 * dir, 0))
+      List(
+        List(square + (dir, 0)).flatten,
+        (1 to 2).flatMap(i => square + (i * dir, 0)).toList
+      )
     else
-      List(square + (dir, 0))
+      List(List(square + (dir, 0)).flatten)
   }
   def getCaptureMotion = List(square + (dir, -1), square + (dir, 1))
 }
 final class King(val color: Color, val square: BoardSquare) extends Piece {
-  def getMotion = List(
-    square + (0, 1),
-    square + (0, -1),
-    square + (1, 1),
-    square + (1, -1),
-    square + (1, 0),
-    square + (-1, 0),
-    square + (-1, -1),
-    square + (-1, 1)
-  )
+  def getMotion: List[List[BoardSquare]] =
+    List(
+      square + (0, 1),
+      square + (0, -1),
+      square + (1, 1),
+      square + (1, -1),
+      square + (1, 0),
+      square + (-1, 0),
+      square + (-1, -1),
+      square + (-1, 1)
+    ).flatten.map(List(_))
 }
 final class Knight(val color: Color, val square: BoardSquare) extends Piece {
-  def getMotion =
+  def getMotion: List[List[BoardSquare]] =
     List(
       square + (1, 2),
       square + (1, -2),
@@ -170,38 +196,41 @@ final class Knight(val color: Color, val square: BoardSquare) extends Piece {
       square + (-1, -2),
       square + (-2, 1),
       square + (-2, -1)
-    )
+    ).flatten.map(List(_))
 }
 final class Queen(val color: Color, val square: BoardSquare) extends Piece {
-  def getMotion = {
+  def getMotion: List[List[BoardSquare]] = {
     val r = new Rook(color, square)
     val b = new Bishop(color, square)
     r.getMotion ++ b.getMotion
   }
 }
 final class Rook(val color: Color, val square: BoardSquare) extends Piece {
-  def getMotion = {
-    val i0 = square(0)
-    val j0 = square(1)
-    for {
-      dij <- List(1, -1, 0, 0)
-        .zip(List(0, 0, 1, -1))
-      di = dij._1
-      dj = dij._2
-      i <- Range(i0, i0 + 8 * di, di) if 0 <= i && i < 8
-      j <- Range(j0, j0 + 8 * dj, dj) if 0 <= j && j < 8
-    } yield Some(new BoardSquare(i, j))
+
+  def getMotion: List[List[BoardSquare]] = {
+    val (i0, j0) = (square(0), square(1))
+    for (dij <- List(1, -1, 0, 0).zip(List(0, 0, 1, -1))) yield {
+      val (di, dj) = dij
+      val path: Seq[BoardSquare] = for {
+        i <- Range(i0, i0 + 8 * di, di) if 0 <= i && i < 8
+        j <- Range(j0, j0 + 8 * dj, dj) if 0 <= j && j < 8
+      } yield BoardSquare(i, j)
+      path.toList
+    }
   }
 }
 final class Bishop(val color: Color, val square: BoardSquare) extends Piece {
-  def getMotion = {
-    val i0 = square(0)
-    val j0 = square(1)
+  def getMotion: List[List[BoardSquare]] = {
+    val (i0, j0) = (square(0), square(1))
     for {
       di <- List(-1, 1)
       dj <- List(-1, 1)
-      i <- Range(i0, i0 + 8 * di, di) if 0 <= i && i < 8
-      j <- Range(j0, j0 + 8 * dj, dj) if 0 <= j && j < 8
-    } yield Some(new BoardSquare(i, j))
+    } yield {
+      val path: Seq[BoardSquare] = for {
+        i <- Range(i0, i0 + 8 * di, di) if 0 <= i && i < 8
+        j <- Range(j0, j0 + 8 * dj, dj) if 0 <= j && j < 8
+      } yield BoardSquare(i, j)
+      path.toList
+    }
   }
 }
