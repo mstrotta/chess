@@ -12,8 +12,13 @@ object BoardSquare {
     new BoardSquare(row, col)
   }
 }
+
+/**
+* BoardSquare wraps an i,j tuple (note row and col are 0-7 with origin at top-left)
+  * @param row 0 to 7
+  * @param col 0 to 7
+  */
 class BoardSquare(row: Int, col: Int) {
-  // note row and col are 0-7 with origin at top-left
   val coord = Array(row, col)
   def apply(i: Int) = coord(i)
 
@@ -22,7 +27,6 @@ class BoardSquare(row: Int, col: Int) {
     * @param dij delta ij in screen coordinates
     * @return Some() if on board
     */
-  def +(dij: (Int, Int)): Option[BoardSquare] =
     try {
       Some(new BoardSquare(row + dij._1, col + dij._2))
     } catch {
@@ -31,10 +35,18 @@ class BoardSquare(row: Int, col: Int) {
     }
 }
 
+/**
+* Board contains underlying 2D-array of Pieces. It doesn't know the rules of chess
+  */
 class Board() {
   val squares: Array[Array[Piece]] = initializePieces()
+  //val castled: List[Color] = Nil
 
-  //def getLegalMoves(sq: BoardSquare): List[Move] = {}
+  // Three-fold repetition
+  //   We should have a counting hash map of the set of all legal moves for each player to know if the game is a draw
+
+  // En-passant
+  //   We must know the previous move in order to know if en-passant capture is a legal move
 
   def apply(sq: BoardSquare): Piece = getPiece(sq)
 
@@ -121,7 +133,6 @@ object Move {
       case _               => None
     }
   }
-
 }
 case class Move(from: BoardSquare, to: BoardSquare) {}
 sealed trait MoveList {
@@ -135,10 +146,12 @@ final case class MovePath private (_moves: Move*) extends MoveList {
   def toList: List[Move] = _moves.toList
 }
 
+/**
+* A Piece knows its color and square, and it knows how it moves and captures
+  */
 sealed trait Piece {
   val color: Color
   val square: BoardSquare
-  type Path = (BoardSquare, (Int, Int)) => List[BoardSquare]
   def getMotion: List[List[BoardSquare]]
   override def toString: String = {
     val c = this match {
